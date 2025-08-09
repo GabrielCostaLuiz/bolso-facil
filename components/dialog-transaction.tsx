@@ -1,5 +1,7 @@
+"use client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PlusCircle } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+
 import { useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
 import * as z from "zod";
@@ -29,8 +31,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { categoriesDefaults } from "@/constants/categories-defaults";
+import { QUERY_KEYS } from "@/constants/queryKeys";
+import type { User } from "@/types/user";
+import { icons } from "@/utils/icons";
+import { toast } from "@/utils/toast";
 import { Button } from "./ui/button";
-import { useQueryClient } from "@tanstack/react-query";
 
 // Schema de validação
 const transactionSchema = z.object({
@@ -42,12 +48,11 @@ const transactionSchema = z.object({
   date: z.string(),
 });
 
-type TransactionFormData = z.infer<typeof transactionSchema>;
+export type TransactionFormData = z.infer<typeof transactionSchema>;
 
-export function DialogTransaction() {
+export function DialogTransaction({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
-    const queryClient = useQueryClient();
-
+  const queryClient = useQueryClient();
 
   const form = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema) as Resolver<TransactionFormData>,
@@ -66,18 +71,28 @@ export function DialogTransaction() {
 
     try {
       await createTransaction(data);
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    } catch (error) {}
+      form.reset();
+      setOpen(false);
+      await queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.transactions.list(user?.sub || ""),
+      });
+
+      toast("Transação adicionada com sucesso!", {
+        type: "success",
+      });
+    } catch (error: unknown) {
+      toast("Erro ao adicionar transação", {
+        type: "error",
+      });
+    }
     // onSubmit?.(data);
-    form.reset();
-    setOpen(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="bg-primary/80 hover:bg-primary">
-          <PlusCircle className=" h-4 w-4" />
+          {icons.plusCircle(" h-4 w-4")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
@@ -170,18 +185,13 @@ export function DialogTransaction() {
                         <SelectValue placeholder="Selecione a categoria" />
                       </SelectTrigger>
                     </FormControl>
+
                     <SelectContent>
-                      <SelectItem value="food">Alimentação</SelectItem>
-                      <SelectItem value="transport">Transporte</SelectItem>
-                      <SelectItem value="entertainment">
-                        Entretenimento
-                      </SelectItem>
-                      <SelectItem value="health">Saúde</SelectItem>
-                      <SelectItem value="education">Educação</SelectItem>
-                      <SelectItem value="salary">Salário</SelectItem>
-                      <SelectItem value="freelance">Freelance</SelectItem>
-                      <SelectItem value="investment">Investimento</SelectItem>
-                      <SelectItem value="other">Outros</SelectItem>
+                      {categoriesDefaults.map((category) => (
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -229,7 +239,21 @@ export function DialogTransaction() {
               >
                 Cancelar
               </Button>
-              <Button type="submit">Adicionar Transação</Button>
+              <Button
+                type="submit"
+                disabled={
+                  !form.formState.isValid || form.formState.isSubmitting
+                }
+              >
+                {form.formState.isSubmitting ? (
+                  <div className="flex items-center gap-2">
+                    {icons.loader2("animate-spin h-4 w-4")}
+                    <span>Enviando...</span>
+                  </div>
+                ) : (
+                  "Adicionar Transação"
+                )}
+              </Button>
             </div>
           </form>
         </Form>

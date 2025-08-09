@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { env } from "@/config/env";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -7,15 +8,15 @@ export async function updateSession(request: NextRequest) {
   });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
           supabaseResponse = NextResponse.next({
@@ -43,9 +44,6 @@ export async function updateSession(request: NextRequest) {
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
     !request.nextUrl.pathname.startsWith("/api")
-    // !request.nextUrl.pathname.startsWith("/registro") &&
-    // !request.nextUrl.pathname.startsWith("/") &&
-    // !request.nextUrl.pathname.startsWith("/auth")
   ) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone();
@@ -56,10 +54,13 @@ export async function updateSession(request: NextRequest) {
 
   if (
     (user && request.nextUrl.pathname.startsWith("/login")) ||
-    request.nextUrl.pathname.startsWith("/auth")
+    request.nextUrl.pathname.startsWith("/auth") ||
+    request.nextUrl.pathname === "/dashboard" ||
+    request.nextUrl.pathname === "/" ||
+    (user && !request.nextUrl.pathname.includes(user.id))
   ) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = `/dashboard/${user?.id}`;
     return NextResponse.redirect(url);
   }
 

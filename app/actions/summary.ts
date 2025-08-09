@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/supabase/get-user";
+import type { User } from "@/types/user";
 import { createClient } from "@/utils/db/supabase/server";
 
 interface ISummary {
@@ -15,45 +16,67 @@ export async function getSummary(): Promise<ISummary> {
   const supabase = await createClient();
   const user = await getCurrentUser();
 
-  //   const cachedGetTransactions = unstable_cache(
-  //     async () => {
-  const { data, error } = await supabase
-    .from("user_financial_summary")
-    .select("*")
-    .eq("user_id", user?.sub);
-  // .order("date", { ascending: false });
+  if (!user) return {} as ISummary;
 
-  if (error) {
-    throw error;
-  }
+  try {
+    const { data, error } = await supabase
+      .from("user_financial_summary")
+      .select("*")
+      .eq("user_id", user?.sub);
+    // .order("date", { ascending: false });
 
-  const dataSummary = data[0] as ISummary;
+    if (error) {
+      throw error;
+    }
 
-  return dataSummary;
-}
+    const dataSummary = data[0] as ISummary;
 
-export async function createSummary() {
-  const supabase = await createClient();
-  const user = await getCurrentUser();
+    if (!dataSummary) {
+      throw new Error("Summary not found");
+    }
 
-  const isSummaryUser = await getSummary();
-
-  if (!isSummaryUser) {
+    return dataSummary;
+  } catch (errorCatch) {
     const { data, error } = await supabase
       .from("user_financial_summary")
       .insert([
         {
           user_id: user?.sub,
         },
-      ]);
+      ])
+      .select();
 
     if (error) {
       throw error;
     }
 
-    return data;
+    return data[0];
   }
+
+  //   const cachedGetTransactions = unstable_cache(
+  //     async () => {
 }
+
+// export async function createSummary(user: User, supabase) {
+//   // const supabase = await createClient();
+//   // const isSummaryUser = await getSummary();
+//   console.log(isSummaryUser);
+//   if (!isSummaryUser) {
+//     const { data, error } = await supabase
+//       .from("user_financial_summary")
+//       .insert([
+//         {
+//           user_id: user?.sub,
+//         },
+//       ]);
+
+//     if (error) {
+//       throw error;
+//     }
+//     console.log(data);
+//     return data;
+//   }
+// }
 
 export async function updateSummary({
   total_income,
@@ -66,6 +89,10 @@ export async function updateSummary({
 }) {
   const supabase = await createClient();
   const user = await getCurrentUser();
+
+  if (!user) {
+    return;
+  }
 
   const { data, error } = await supabase
     .from("user_financial_summary")

@@ -1,4 +1,3 @@
-import { url } from "inspector";
 import { cn } from "@/lib/utils";
 import { getGreetingByTime } from "@/utils/getGreetingByTime";
 import { AvatarFallback, AvatarImage, Avatar as AvatarUI } from "../ui/avatar";

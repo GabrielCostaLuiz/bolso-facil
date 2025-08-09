@@ -1,13 +1,7 @@
 import { isSameMonth, isSameWeek, isSameYear, parseISO } from "date-fns";
+import type { TimeRange } from "@/app/(application)/dashboard/[id]/transactions/page";
 
-type Period = "month" | "week" | "year";
-
-
-
-export function filterByPeriod(
-  transactions: any[],
-  period: Period
-): any[] {
+export function filterByPeriod(transactions: any[], period: TimeRange): any[] {
   const now = new Date();
 
   return transactions.filter((transaction) => {
@@ -17,7 +11,7 @@ export function filterByPeriod(
       case "month":
         return isSameMonth(transactionDate, now);
       case "week":
-        return isSameWeek(transactionDate, now, { weekStartsOn: 1 }); 
+        return isSameWeek(transactionDate, now, { weekStartsOn: 1 });
       case "year":
         return isSameYear(transactionDate, now);
       default:

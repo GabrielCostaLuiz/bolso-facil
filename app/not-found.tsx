@@ -1,10 +1,10 @@
 "use client";
-import { ArrowLeft, HelpCircle, Home, Search } from "lucide-react";
+
 import Link from "next/link";
 import React from "react";
+import { icons } from "@/utils/icons";
 
 const NotFoundPage = () => {
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 flex items-center justify-center p-4">
       {/* Elementos decorativos de fundo */}
@@ -73,7 +73,7 @@ const NotFoundPage = () => {
             href="/"
             className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-emerald-500 to-blue-600 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
-            <Home className="w-5 h-5 mr-2" />
+            {icons.home("w-5 h-5 mr-2")}
             Voltar ao Início
           </Link>
         </div>

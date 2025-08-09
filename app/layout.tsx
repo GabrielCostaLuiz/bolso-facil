@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 // import { stackServerApp } from "../stack";
 import "./globals.css";
 import { ThemeProvider } from "@/components/provider/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased `}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen  `}
       >
         {/* <StackProvider app={stackServerApp}>
           <StackTheme>{children}</StackTheme>

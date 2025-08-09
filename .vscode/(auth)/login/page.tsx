@@ -1,6 +1,6 @@
 "use client";
 import { useStackApp } from "@stackframe/stack";
-import { DollarSign } from "lucide-react";
+
 import { useSearchParams } from "next/navigation";
 
 const LoginPage = () => {

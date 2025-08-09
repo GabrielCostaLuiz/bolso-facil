@@ -121,9 +121,8 @@
   }
 }
 
-.cardResume {
-  /* background-image: url("../public/groupElements.png");
-  background-repeat: no-repeat; */
-  /* background-size: cover; */
-  /* background-position: center; */
+@layer components {
+  Button {
+    @apply cursor-pointer;
+  }
 }
