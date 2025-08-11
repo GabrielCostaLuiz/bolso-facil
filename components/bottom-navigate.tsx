@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 import type { IconKeys } from "@/utils/icons";
 import { Link } from "./common/link";
 import { DialogTransaction } from "./dialog-transaction";
+import { ButtonActions } from "./button-actions";
+
 
 export async function BottomNavigation() {
   const user = await getCurrentUser();
@@ -51,7 +53,7 @@ export async function BottomNavigation() {
       <div className="flex justify-around items-center gap-3">
         {navItems.map((item) => {
           if (item.id === "actions") {
-            return <DialogTransaction key={item.id} user={user} />;
+            return <ButtonActions key={item.id} user={user}/>;
           }
 
           return (

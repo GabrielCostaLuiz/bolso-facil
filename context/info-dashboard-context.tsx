@@ -43,7 +43,7 @@ export const InfoDashboardProvider: React.FC<Props> = ({ children }) => {
       if (match) {
         const userId = match[1];
         setUrlBase(`/dashboard/${userId}`);
-        console.log(userId);
+  
         setUserId(userId);
       } else {
         setUrlBase("");

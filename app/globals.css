@@ -126,3 +126,13 @@
     @apply cursor-pointer;
   }
 }
+
+.hiddenScroll::-webkit-scrollbar {
+  display: none;
+}
+
+
+.hiddenScroll {
+  scrollbar-width: none; 
+  -ms-overflow-style: none; 
+}

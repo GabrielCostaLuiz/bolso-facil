@@ -5,7 +5,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
 import * as z from "zod";
-import { createTransaction } from "@/app/(application)/dashboard/[id]/transactions/_actions";
+import { updateTransaction } from "@/app/(application)/dashboard/[id]/transactions/_actions";
+import type { ITransactions } from "@/app/(application)/dashboard/[id]/transactions/_types";
 import {
   Dialog,
   DialogContent,
@@ -56,18 +57,29 @@ const transactionSchema = z.object({
   year: z.number(),
 });
 
-export type TransactionFormData = z.infer<typeof transactionSchema>;
+export type EditTransactionFormData = z.infer<typeof transactionSchema>;
 
-export function DialogTransaction({ user }: { user: User | null }) {
+interface DialogEditTransactionProps {
+  transaction: ITransactions;
+  userId: string;
+  trigger?: React.ReactNode;
+}
+
+export function DialogEditTransaction({
+  transaction,
+  userId,
+}: DialogEditTransactionProps) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const form = useForm<TransactionFormData>({
-    resolver: zodResolver(transactionSchema) as Resolver<TransactionFormData>,
+  const form = useForm<EditTransactionFormData>({
+    resolver: zodResolver(
+      transactionSchema
+    ) as Resolver<EditTransactionFormData>,
     defaultValues: {
       title: "",
       amount: 0,
-      type: "expense",
+      type: "income",
       category: "food",
       description: "",
       date: new Date().toISOString().substring(0, 10),
@@ -79,7 +91,22 @@ export function DialogTransaction({ user }: { user: User | null }) {
   const categoryOptions =
     form.watch("type") === "income" ? incomeCategories : expenseCategories;
 
-  const handleSubmit = async (data: TransactionFormData) => {
+  useEffect(() => {
+    if (transaction && open) {
+      form.reset({
+        title: transaction.title,
+        amount: transaction.amount,
+        type: transaction.type,
+        category: transaction.category,
+        description: transaction.description || "",
+        date: transaction.date.toString(),
+        month: transaction.month,
+        year: transaction.year,
+      });
+    }
+  }, [transaction, open, form]);
+
+  const handleSubmit = async (data: EditTransactionFormData) => {
     const dateObj = new Date(data.date + "T00:00:00");
 
     const dataFormatted = {
@@ -90,44 +117,48 @@ export function DialogTransaction({ user }: { user: User | null }) {
     };
 
     try {
-      await createTransaction(dataFormatted);
-      form.reset();
-      setOpen(false);
+      await updateTransaction(transaction.id, dataFormatted);
+
       await queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.transactions.list(user?.sub || ""),
+        queryKey: QUERY_KEYS.transactions.list(userId || ""),
       });
 
-      toast("Transação adicionada com sucesso!", {
+      toast("Transação atualizada com sucesso!", {
         type: "success",
       });
+      setOpen(false);
+      form.reset();
     } catch (error: unknown) {
-      toast("Erro ao adicionar transação", {
+      console.error("Erro ao atualizar transação:", error);
+      toast("Erro ao atualizar transação", {
         type: "error",
       });
     }
-    // onSubmit?.(data);
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-  useEffect(() => {
-    return () => {
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (!newOpen) {
       form.reset();
-    };
-  }, [open]);
-
+    }
+  };
+ 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button className="bg-primary/80 hover:bg-primary">
-          Criar Transação
+        <Button
+          variant="ghost"
+          className="bg-orange-600 hover:!bg-orange-500"
+          // onClick={handleEdit}
+        >
+          {icons.edit()}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-[300px] max-sm:max-h-[400px] max-lg:max-h-[90%] hiddenScroll overflow-x-hidden">
+      <DialogContent className="max-w-[400px] max-sm:max-h-[500px] max-lg:max-h-[90%] hiddenScroll overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle>Adicionar Transação</DialogTitle>
+          <DialogTitle>Editar Transação</DialogTitle>
           <DialogDescription>
-            Preencha os dados para adicionar uma nova transação ao seu controle
-            financeiro.
+            Modifique os dados da transação conforme necessário.
           </DialogDescription>
         </DialogHeader>
 
@@ -172,65 +203,53 @@ export function DialogTransaction({ user }: { user: User | null }) {
               )}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="type"
-                defaultValue="expense"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="income">Receita</SelectItem>
-                        <SelectItem value="expense">Despesa</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="income">Receita</SelectItem>
+                      <SelectItem value="expense">Despesa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Categoria</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Selecione a categoria" />
-                        </SelectTrigger>
-                      </FormControl>
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Categoria</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a categoria" />
+                      </SelectTrigger>
+                    </FormControl>
 
-                      <SelectContent>
-                        {categoryOptions.map((category) => (
-                          <SelectItem
-                            key={category.value}
-                            value={category.value}
-                          >
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                    <SelectContent>
+                      {categoryOptions.map((category) => (
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
@@ -268,9 +287,7 @@ export function DialogTransaction({ user }: { user: User | null }) {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  setOpen(false);
-                }}
+                onClick={() => setOpen(false)}
               >
                 Cancelar
               </Button>
@@ -283,10 +300,10 @@ export function DialogTransaction({ user }: { user: User | null }) {
                 {form.formState.isSubmitting ? (
                   <div className="flex items-center gap-2">
                     {icons.loader2("animate-spin h-4 w-4")}
-                    <span>Enviando...</span>
+                    <span>Salvando...</span>
                   </div>
                 ) : (
-                  "Adicionar Transação"
+                  "Salvar Alterações"
                 )}
               </Button>
             </div>

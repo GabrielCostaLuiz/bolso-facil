@@ -1,17 +1,19 @@
 "use client";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { deleteTransaction } from "@/app/(application)/dashboard/[id]/transactions/_actions";
+import type { ITransactions } from "@/app/(application)/dashboard/[id]/transactions/_types";
 import {
-  deleteTransaction,
-  type ITransactions,
-} from "@/app/actions/transactions";
-import { categoriesDefaults } from "@/constants/categories-defaults";
+  expenseCategories,
+  incomeCategories,
+} from "@/constants/categories-defaults";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDate } from "@/utils/formatDate";
 import { icons } from "@/utils/icons";
 import { toast } from "@/utils/toast";
+import { DialogEditTransaction } from "./dialog-transation-edit";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,33 +29,35 @@ import { Card, CardContent } from "./ui/card";
 
 export function CardTransaction({
   transaction,
-  onEdit,
   userId,
 }: {
   transaction: ITransactions;
-  onEdit?: (transaction: ITransactions) => void;
   onDelete?: (transactionId: string) => void;
   userId?: string;
 }) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [width, setWidth] = useState(0);
+  const isMobile = width < 768;
+
   const queryClient = useQueryClient();
 
-  const category = categoriesDefaults.find(
-    (category) =>
-      category.value.toLowerCase() === transaction.category.toLowerCase()
+  const categoriesTypeTransaction =
+    transaction.type === "expense" ? expenseCategories : incomeCategories;
+
+  const category = categoriesTypeTransaction.find(
+    (category) => category.value === transaction.category
   );
 
   const Icon = category
     ? category.icon("text-white", 24)
-    : categoriesDefaults[categoriesDefaults.length - 1].icon("", 24);
+    : categoriesTypeTransaction[categoriesTypeTransaction.length - 1].icon(
+        "",
+        24
+      );
 
   const bgColor = category?.bgColor ? category?.bgColor : "bg-cyan-300";
-
-  const handleEdit = () => {
-    onEdit?.(transaction);
-  };
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -76,6 +80,10 @@ export function CardTransaction({
     }
   };
 
+  useEffect(() => {
+    setWidth(window.innerWidth);
+  }, []);
+
   return (
     <div className="relative group">
       <Card
@@ -83,9 +91,7 @@ export function CardTransaction({
         className={cn(
           "overflow-hidden  hover:shadow-md  group relative z-20 transition-all duration-300 cursor-pointer ",
           isOpen ? "w-[calc(100%-60px)]" : "w-full",
-          !isOpen &&
-            window.innerWidth > 700 &&
-            "group-hover:w-[calc(100%-30px)]"
+          !isOpen && !isMobile && "group-hover:w-[calc(100%-30px)]"
         )}
         onClick={() => {
           setIsOpen((prev) => !prev);
@@ -125,6 +131,7 @@ export function CardTransaction({
             </DropdownMenuContent>
           </DropdownMenu>
         </div> */}
+        
 
           <div className={"flex gap-3 items-start pr-8 sm:pr-4 "}>
             <div
@@ -164,7 +171,7 @@ export function CardTransaction({
                 </div>
               </div>
 
-              <p className="text-sm text-gray-600 line-clamp-2 mb-2 leading-relaxed cursor-text w-fit">
+              <p className="text-sm text-gray-600 line-clamp-2 mb-2 leading-relaxed cursor-text w-fit break-all">
                 {transaction.description && transaction.description.length > 1
                   ? transaction.description
                   : "Nenhuma descrição disponível para esta transação"}
@@ -192,7 +199,7 @@ export function CardTransaction({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleEdit}
+                  // onClick={handleEdit}
                   className="flex-1 h-8"
                 >
                   <div className="flex items-center gap-1">
@@ -258,18 +265,16 @@ export function CardTransaction({
 
         <div
           className={cn(
-            "flex-1  ease-in-out flex items-center rounded-2xl pr-3 justify-end bg-gray-500"
+            "flex-1  ease-in-out flex items-center rounded-2xl pr-3 justify-end bg-gray-500 relative"
           )}
         >
           {isOpen ? (
             <div className="flex flex-col gap-1">
-              <Button
-                variant="ghost"
-                className="bg-orange-600 hover:!bg-orange-500"
-                onClick={handleEdit}
-              >
-                {icons.edit()}
-              </Button>
+              <DialogEditTransaction
+                userId={userId || ""}
+                transaction={transaction}
+              />
+
               <Button
                 variant="default"
                 className="bg-red-600 hover:bg-red-500"
@@ -279,12 +284,8 @@ export function CardTransaction({
               </Button>
             </div>
           ) : (
-            window.innerWidth > 700 && (
-              <span
-                className={cn(
-                  "rotate-90 origin-top-left text-sm font-medium  whitespace-nowrap  absolute -right-27 top-5.5"
-                )}
-              >
+            !isMobile && (
+              <span className="absolute top-1/2 -right-10 -translate-y-1/2 rotate-90 origin-center transform text-sm font-semibold">
                 Clique para editar
               </span>
             )
