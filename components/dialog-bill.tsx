@@ -53,6 +53,7 @@ const billSchema = z.object({
     "Categoria é obrigatória"
   ),
   dueDate: z.string().min(1, "Data de vencimento é obrigatória"),
+  day: z.coerce.number().min(1).max(31, "Dia inválido"),
   recurrenceType: z.enum(
     ["monthly", "quarterly", "semiannually", "annually"],
     "Recorrência é obrigatória"
@@ -143,13 +144,25 @@ export function DialogBill({ user, trigger }: DialogBillProps) {
     defaultValues: {
       name: "",
       amount: 0,
-      category: "others",
+      category: "housing",
       dueDate: "",
+      day: new Date().getDate(),
       recurrenceType: "monthly",
       description: "",
-      reminderDays: 3,
+      reminderDays: 0,
     },
   });
+
+  // Update day field when dueDate changes
+  const dueDate = form.watch("dueDate");
+  useEffect(() => {
+    if (dueDate) {
+      const date = new Date(dueDate);
+      if (!isNaN(date.getTime())) {
+        form.setValue("day", date.getDate(), { shouldValidate: true });
+      }
+    }
+  }, [dueDate, form]);
 
   const selectedCategory = categoryOptions.find(
     (cat) => cat.value === form.watch("category")

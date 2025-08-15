@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  billCategories,
   expenseCategories,
   incomeCategories,
 } from "@/constants/categories-defaults";
@@ -43,7 +44,8 @@ import { Button } from "./ui/button";
 
 const categoriesExpenses = expenseCategories.map((cat) => cat.value);
 const categoriesIncome = incomeCategories.map((cat) => cat.value);
-const categoriesAll = [...categoriesExpenses, ...categoriesIncome];
+const categoriesBills = billCategories.map((cat) => cat.value);
+const categoriesAll = [...categoriesExpenses, ...categoriesIncome, ...categoriesBills];
 
 const transactionSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),

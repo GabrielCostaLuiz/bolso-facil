@@ -1,8 +1,9 @@
 "use client";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { deleteBill } from "@/app/(application)/dashboard/[id]/bills/_actions";
 import { deleteTransaction } from "@/app/(application)/dashboard/[id]/transactions/_actions";
-import type { ITransactions } from "@/app/(application)/dashboard/[id]/transactions/_types";
+import type { UnifiedTransaction } from "@/app/(application)/dashboard/[id]/transactions/_types";
 import {
   expenseCategories,
   incomeCategories,
@@ -30,10 +31,13 @@ import { Card, CardContent } from "./ui/card";
 export function CardTransaction({
   transaction,
   userId,
+  month,
+  year,
 }: {
-  transaction: ITransactions;
-  onDelete?: (transactionId: string) => void;
+  transaction: UnifiedTransaction;
   userId?: string;
+  month?: string;
+  year?: string;
 }) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -59,24 +63,60 @@ export function CardTransaction({
 
   const bgColor = category?.bgColor ? category?.bgColor : "bg-cyan-300";
 
+  let date: string;
+
+  if (transaction.day) {
+    const monthFormatted = month
+      ? String(month).padStart(2, "0")
+      : String(transaction.month).padStart(2, "0");
+
+    const yearFormatted = year ? String(year) : String(transaction.year);
+
+    date = `${yearFormatted}-${monthFormatted}-${String(
+      transaction.day
+    ).padStart(2, "0")}`;
+  } else {
+    date = transaction.date?.toString() || "";
+  }
+
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await deleteTransaction(transaction);
-      // setIsDeleteDialogOpen(false);
+      if (transaction.bill_id) {
+        if (!month || !year)
+          return toast("Erro ao excluir parcela da conta", { type: "error" });
+
+        await deleteBill(transaction.bill_id, month, year);
+        toast("Parcela da conta excluída com sucesso!", {
+          type: "success",
+        });
+      } else {
+        await deleteTransaction(transaction);
+        toast("Transação excluída com sucesso!", {
+          type: "success",
+        });
+      }
+
       await queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.transactions.list(userId || ""),
       });
-      toast("Transação excluída com sucesso!", {
-        type: "success",
-      });
+
+      if (transaction.bill_id) {
+        await queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.bills.list(userId || ""),
+        });
+      }
     } catch (error) {
-      console.error("Erro ao excluir transação:", error);
-      toast("Erro ao excluir transação", {
-        type: "error",
-      });
+      console.error("Erro ao excluir:", error);
+      toast(
+        transaction.bill_id
+          ? "Erro ao excluir parcela da conta"
+          : "Erro ao excluir transação",
+        { type: "error" }
+      );
     } finally {
       setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -98,41 +138,6 @@ export function CardTransaction({
         }}
       >
         <CardContent className="relative">
-          {/* Botão de ações - sempre visível em mobile, aparece no hover em desktop */}
-          {/* <div className="absolute top-2 right-2 z-10 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background"
-              >
-                {icons.moreVertical("h-4 w-4")}
-                <span className="sr-only">Abrir menu de ações</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={handleEdit} className="cursor-pointer">
-                <div className="flex items-center gap-2">
-                  {icons.edit("h-4 w-4")}
-                  <span>Editar transação</span>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setIsDeleteDialogOpen(true)}
-                className="cursor-pointer text-red-600 focus:text-red-600"
-              >
-                <div className="flex items-center gap-2">
-                  {icons.trash("h-4 w-4")}
-                  <span>Excluir transação</span>
-                </div>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div> */}
-        
-
           <div className={"flex gap-3 items-start pr-8 sm:pr-4 "}>
             <div
               className={cn(
@@ -179,7 +184,7 @@ export function CardTransaction({
 
               <div className="flex items-center justify-between text-xs">
                 <p className="text-gray-400 font-medium cursor-text">
-                  {formatDate(transaction.date.toString())}
+                  {formatDate(date)}
                 </p>
 
                 <span
@@ -230,9 +235,15 @@ export function CardTransaction({
               <AlertDialogHeader>
                 <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Tem certeza que deseja excluir a transação "
-                  {transaction.title}
-                  "? Esta ação não pode ser desfeita.
+                  {transaction.bill_id ? (
+                    <>
+                      Tem certeza que deseja excluir esta parcela da conta "
+                      {transaction.title}"? Apenas esta parcela será removida,
+                      não a conta recorrente inteira.
+                    </>
+                  ) : (
+                    `Tem certeza que deseja excluir a transação "${transaction.title}"? Esta ação não pode ser desfeita.`
+                  )}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

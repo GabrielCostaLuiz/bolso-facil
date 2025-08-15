@@ -103,4 +103,4 @@ export type ExpenseCategoryKeys = (typeof expenseCategories)[number]["value"];
 export type IncomeCategoryKeys = (typeof incomeCategories)[number]["value"];
 export type BillCategoryKeys = (typeof billCategories)[number]["value"];
 
-export type TransactionCategoryKeys = ExpenseCategoryKeys | IncomeCategoryKeys;
+export type CategoryKeys = ExpenseCategoryKeys | IncomeCategoryKeys | BillCategoryKeys;

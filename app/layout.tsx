@@ -46,7 +46,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
-          <footer className="w-full py-6 flex items-center justify-start px-4 border-t">
+          {/* <footer className="w-full py-6 flex items-center justify-start px-4 border-t">
             <a
               href="https://gabrielcostaluiz.com.br"
               target="_blank"
@@ -56,7 +56,7 @@ export default function RootLayout({
               Desenvolvido por{" "}
               <span className="font-medium">Gabriel Costa Luiz</span>
             </a>
-          </footer>{" "}
+          </footer>{" "} */}
         </ThemeProvider>
       </body>
     </html>

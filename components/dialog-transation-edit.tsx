@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
 import * as z from "zod";
 import { updateTransaction } from "@/app/(application)/dashboard/[id]/transactions/_actions";
-import type { ITransactions } from "@/app/(application)/dashboard/[id]/transactions/_types";
 import {
   Dialog,
   DialogContent,
@@ -33,18 +32,23 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  billCategories,
   expenseCategories,
   incomeCategories,
+  type CategoryKeys,
 } from "@/constants/categories-defaults";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import type { User } from "@/types/user";
 import { icons } from "@/utils/icons";
 import { toast } from "@/utils/toast";
 import { Button } from "./ui/button";
+import type { UnifiedTransaction } from "@/app/(application)/dashboard/[id]/transactions/_types";
+import { getMonth, getYear } from "@/utils/formatDate";
 
 const categoriesExpenses = expenseCategories.map((cat) => cat.value);
 const categoriesIncome = incomeCategories.map((cat) => cat.value);
-const categoriesAll = [...categoriesExpenses, ...categoriesIncome];
+const categoriesBills = billCategories.map((cat) => cat.value);
+const categoriesAll = [...categoriesExpenses, ...categoriesIncome, ...categoriesBills];
 
 const transactionSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
@@ -59,8 +63,9 @@ const transactionSchema = z.object({
 
 export type EditTransactionFormData = z.infer<typeof transactionSchema>;
 
+
 interface DialogEditTransactionProps {
-  transaction: ITransactions;
+  transaction: UnifiedTransaction;
   userId: string;
   trigger?: React.ReactNode;
 }
@@ -99,7 +104,7 @@ export function DialogEditTransaction({
         type: transaction.type,
         category: transaction.category,
         description: transaction.description || "",
-        date: transaction.date.toString(),
+        date: transaction.date?.substring(0, 10) ||  new Date().toISOString().substring(0, 10),
         month: transaction.month,
         year: transaction.year,
       });
@@ -112,8 +117,8 @@ export function DialogEditTransaction({
     const dataFormatted = {
       ...data,
       date: dateObj,
-      month: dateObj.getMonth() + 1,
-      year: dateObj.getFullYear(),
+      month: getMonth({dateString: dateObj}),
+      year: getYear({dateString: dateObj}),
     };
 
     try {
@@ -149,7 +154,6 @@ export function DialogEditTransaction({
         <Button
           variant="ghost"
           className="bg-orange-600 hover:!bg-orange-500"
-          // onClick={handleEdit}
         >
           {icons.edit()}
         </Button>

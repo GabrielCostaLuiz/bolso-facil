@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { icons } from "@/utils/icons";
 import { toast } from "@/utils/toast";
+import { DialogBillEdit } from "./dialog-bill-edit";
 
 interface CardBillProps {
   bill: IBills;
@@ -88,6 +89,8 @@ export function CardBill({ bill, userId }: CardBillProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
   const queryClient = useQueryClient();
 
   const CategoryIcon = categoryIcons[bill.category];
@@ -267,10 +270,13 @@ export function CardBill({ bill, userId }: CardBillProps) {
                         </DropdownMenuItem>
                       )}
 
-                      <DropdownMenuItem className="text-blue-600">
-                        {icons.edit("h-4 w-4")}
-                        Editar
-                      </DropdownMenuItem>
+                      {/* <DropdownMenuItem className="text-blue-600" asChild>
+                        <DialogBillEdit
+                          open={isEditDialogOpen}
+                          onOpenChange={setIsEditDialogOpen}
+                          bill={bill}
+                        />
+                      </DropdownMenuItem> */}
 
                       <DropdownMenuSeparator />
 

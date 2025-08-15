@@ -1,79 +1,66 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  getSummary,
-  type ISummary,
-  updateSummary,
-} from "@/app/actions/summary";
+import { getOrCreateSummary, updateSummary } from "@/app/actions/summary-new";
 import type { TransactionFormData } from "@/components/dialog-transaction";
-import { getCurrentUser } from "@/lib/supabase/get-user";
+import { buildQuery } from "@/utils/buildQuery";
+import { calcSummaryChange } from "@/utils/calcSummaryChange";
 import { CheckUserAndDB } from "@/utils/checkUserAndDB";
-import { createClient } from "@/utils/db/supabase/server";
-import type { ITransactions } from "../_types";
+import { AppError } from "@/utils/handleError";
+import { getBillTransactions } from "../../bills/_actions";
+import type { GetTransactionsParams, UnifiedTransaction } from "../_types";
 
-export async function getTransactions({
-  limit,
-  month,
-  year,
-  startDate,
-  endDate,
-  type,
-}: {
-  limit?: number;
-  month?: number;
-  year?: number;
-  startDate?: string;
-  endDate?: string;
-  type?: "week" | "month" | "year" | "custom";
-}): Promise<ITransactions[]> {
+export async function getTransactions(
+  input: GetTransactionsParams
+): Promise<UnifiedTransaction[]> {
+  const { db, user } = await CheckUserAndDB();
+
+  const { limit, month, year, startDate, endDate, type } = input;
+  let allTransactions: UnifiedTransaction[] = [];
+
+  const queryBase = db
+    .from("transactions")
+    .select("*")
+    .eq("user_id", user.sub)
+    .order("created_at", { ascending: false });
+
+  const query = buildQuery(queryBase, {
+    type,
+    startDate,
+    endDate,
+    month,
+    year,
+    limit,
+  });
+
   try {
-    const { db, user } = await CheckUserAndDB();
-
-    if (!user) {
-      return [];
+    const { data: transactions, error: transactionsError } = await query;
+ 
+    if (transactionsError) {
+      throw new AppError("Erro ao buscar transações", {
+        statusCode: 500,
+        details: {
+          message: "Erro ao buscar transações",
+        },
+        cause: transactionsError,
+      });
     }
 
-    let query = db
-      .from("transactions")
-      .select("*")
-      .eq("user_id", user?.sub)
-      .order("created_at", { ascending: false });
+    const billTransactions = await getBillTransactions(
+      { month, year, userId: user.sub },
+      { db }
+    );
 
-    // Filtros baseados no tipo
-    if (type === "custom" && startDate && endDate) {
-      // Filtro personalizado com datas específicas
-      const dayAfterEndDate = new Date(
-        new Date(endDate).getTime() + 24 * 60 * 60 * 1000
-      ).toISOString();
-      query = query
-        .gte("created_at", startDate)
-        .lte("created_at", dayAfterEndDate);
-    } else if (type === "month" && month !== undefined && year !== undefined) {
-      // Filtro por mês específico
-      query = query.eq("month", month).eq("year", year);
-    } else if (type === "year" && year !== undefined) {
-      // Filtro por ano específico
-      query = query.eq("year", year);
-    } else if (type === "week") {
-      // Para semana, busca do mês atual e filtra no cliente
-      const currentDate = new Date();
-      query = query
-        .eq("month", currentDate.getMonth() + 1)
-        .eq("year", currentDate.getFullYear());
-    }
-    // Se não tiver tipo específico, busca todas as transações
-    if (limit !== undefined) {
-      query = query.limit(limit);
-    }
+    allTransactions = [...transactions, ...billTransactions];
 
-    const { data, error } = await query;
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
+    return allTransactions
+      .sort(
+        (
+          a: Pick<UnifiedTransaction, "created_at">,
+          b: Pick<UnifiedTransaction, "created_at">
+        ) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+      .slice(0, limit || allTransactions.length);
   } catch (error) {
     console.error("Erro ao buscar transações:", error);
     throw new Error("Erro ao buscar transações");
@@ -85,13 +72,9 @@ export async function createTransaction(
     date: Date;
   }
 ) {
+  const { db, user } = await CheckUserAndDB();
+
   try {
-    const { db, user } = await CheckUserAndDB();
-
-    if (!user) {
-      return;
-    }
-
     const { error } = await db.from("transactions").insert([
       {
         title: transaction.title,
@@ -110,45 +93,20 @@ export async function createTransaction(
       throw error;
     }
 
-    const summary = await getSummary({
-      month: transaction.month,
-      year: transaction.year,
-      user,
-      db,
+    await getOrCreateSummary({
+      month: String(transaction.month),
+      year: String(transaction.year),
       total_income: transaction.type === "income" ? transaction.amount : 0,
       total_expense: transaction.type === "expense" ? transaction.amount : 0,
       total_balance:
         transaction.type === "income"
           ? transaction.amount
           : -transaction.amount,
+      type: "createTransaction",
+      transaction: transaction,
     });
 
-    if ("messagem" in summary) {
-      revalidatePath(`/dashboard/${user?.sub}`);
-      return;
-    }
-
-    await updateSummary({
-      total_income:
-        transaction.type === "income"
-          ? summary.total_income + transaction.amount
-          : summary.total_income,
-      total_expense:
-        transaction.type === "expense"
-          ? summary.total_expense + transaction.amount
-          : summary.total_expense,
-      total_balance:
-        transaction.type === "income"
-          ? summary.total_balance + transaction.amount
-          : summary.total_balance - transaction.amount,
-      user,
-      db,
-      month: transaction.month,
-      year: transaction.year,
-    });
-
-    revalidatePath(`/dashboard/${user?.sub}`);
-    return;
+    return revalidatePath(`/dashboard/${user?.sub}`);
   } catch (error) {
     console.error("Erro ao criar transação:", error);
     throw new Error("Erro ao criar transação");
@@ -157,161 +115,126 @@ export async function createTransaction(
 
 export async function updateTransaction(
   transactionId: string,
-  updatedData: Omit<TransactionFormData, "date"> & {
+  updatedData: Omit<TransactionFormData, "date" | "month" | "year"> & {
     date: Date;
+    month: string;
+    year: string;
   }
 ) {
   const { db, user } = await CheckUserAndDB();
 
-  if (!user) {
-    throw new Error("Usuário não autenticado");
-  }
+  try {
+    const { data: originalTransaction, error: fetchError } = await db
+      .from("transactions")
+      .select("*")
+      .eq("id", transactionId)
+      .eq("user_id", user.sub)
+      .single();
 
-  const { data: originalTransaction, error: fetchError } = await db
-    .from("transactions")
-    .select("*")
-    .eq("id", transactionId)
-    .eq("user_id", user.sub)
-    .single();
+    if (fetchError) {
+      throw new AppError("Erro ao buscar transação", {
+        statusCode: 500,
+        details: {
+          message: "Erro ao buscar transação",
+        },
+        cause: fetchError,
+      });
+    }
 
-  if (fetchError) {
-    throw fetchError;
-  }
+    if (!originalTransaction) {
+      throw new AppError("Transação não encontrada", {
+        statusCode: 404,
+        details: {
+          message: "Transação não encontrada",
+        },
+      });
+    }
 
-  if (!originalTransaction) {
-    throw new Error("Transação não encontrada");
-  }
+    const { error: updateError } = await db
+      .from("transactions")
+      .update({
+        title: updatedData.title,
+        amount: updatedData.amount,
+        category: updatedData.category,
+        description: updatedData.description,
+        type: updatedData.type,
+        date: updatedData.date,
+        month: updatedData.month,
+        year: updatedData.year,
+      })
+      .eq("id", transactionId)
+      .eq("user_id", user.sub);
 
-  const { error: updateError } = await db
-    .from("transactions")
-    .update({
-      title: updatedData.title,
-      amount: updatedData.amount,
-      category: updatedData.category,
-      description: updatedData.description,
-      type: updatedData.type,
-      date: updatedData.date,
+    if (updateError) {
+      throw new AppError("Erro ao atualizar transação", {
+        statusCode: 500,
+        details: {
+          message: "Erro ao atualizar transação",
+        },
+        cause: updateError,
+      });
+    }
+
+    const summary = await getOrCreateSummary({
       month: updatedData.month,
       year: updatedData.year,
-    })
-    .eq("id", transactionId)
-    .eq("user_id", user.sub);
+    });
 
-  if (updateError) {
-    throw updateError;
-  }
-
-  const summary = await getSummary({
-    month: updatedData.month,
-    year: updatedData.year,
-    user,
-    db,
-    total_income: updatedData.type === "income" ? updatedData.amount : 0,
-    total_expense: updatedData.type === "expense" ? updatedData.amount : 0,
-    total_balance:
-      updatedData.type === "income" ? updatedData.amount : -updatedData.amount,
-  });
-
-  const oldSummary = await getSummary({
-    month: originalTransaction.month,
-    year: originalTransaction.year,
-    user,
-    db,
-    total_income:
-      originalTransaction.type === "income" ? -originalTransaction.amount : 0,
-    total_expense:
-      originalTransaction.type === "expense" ? -originalTransaction.amount : 0,
-    total_balance:
-      originalTransaction.type === "income"
-        ? -originalTransaction.amount
-        : originalTransaction.amount,
-  });
-
-  if ("messagem" in summary) {
-    if (!("messagem" in oldSummary)) {
-      await updateSummary({
-        total_income:
-          updatedData.type === "income"
-            ? oldSummary.total_income - updatedData.amount
-            : oldSummary.total_income,
-        total_expense:
-          updatedData.type === "expense"
-            ? oldSummary.total_expense - updatedData.amount
-            : oldSummary.total_expense,
-        total_balance:
-          updatedData.type === "expense"
-            ? oldSummary.total_balance + updatedData.amount
-            : oldSummary.total_balance - updatedData.amount,
-        user,
-        db,
-        month: originalTransaction.month,
-        year: originalTransaction.year,
-      });
-      revalidatePath(`/dashboard/${user?.sub}`);
-      return;
-    }
-    revalidatePath(`/dashboard/${user?.sub}`);
-    return;
-  }
-
-  let incomeChange = 0;
-  let expenseChange = 0;
-  let balanceChange = 0;
-
-  console.log("originalllllllllll", originalTransaction);
-  if (originalTransaction.type === "income") {
-    incomeChange -= originalTransaction.amount;
-    balanceChange -= originalTransaction.amount;
-  } else {
-    expenseChange += originalTransaction.amount;
-    balanceChange -= originalTransaction.amount;
-  }
-
-  await updateSummary({
-    total_income: summary.total_income + incomeChange,
-    total_expense: summary.total_expense + expenseChange,
-    total_balance: summary.total_balance + balanceChange,
-    user,
-    db,
-    month: updatedData.month,
-    year: updatedData.year,
-  });
-
-  if (!("messagem" in oldSummary)) {
-    await updateSummary({
-      total_income:
-        updatedData.type === "income"
-          ? oldSummary.total_income - updatedData.amount
-          : oldSummary.total_income,
-      total_expense:
-        updatedData.type === "expense"
-          ? oldSummary.total_expense - updatedData.amount
-          : oldSummary.total_expense,
-      total_balance:
-        updatedData.type === "expense"
-          ? oldSummary.total_balance + updatedData.amount
-          : oldSummary.total_balance - updatedData.amount,
-      user,
-      db,
+    const oldSummary = await getOrCreateSummary({
       month: originalTransaction.month,
       year: originalTransaction.year,
     });
-    revalidatePath(`/dashboard/${user?.sub}`);
-    return;
-  }
 
-  revalidatePath(`/dashboard/${user.sub}`);
-  return;
+    // let incomeChange = 0;
+    // let expenseChange = 0;
+    // let balanceChange = 0;
+
+    // if (originalTransaction.type === "income") {
+    //   incomeChange += originalTransaction.amount;
+    //   balanceChange += originalTransaction.amount;
+    // } else {
+    //   expenseChange += originalTransaction.amount;
+    //   balanceChange -= originalTransaction.amount;
+    // }
+
+    const applyNew = calcSummaryChange(updatedData);
+
+    await updateSummary({
+      id: summary.id,
+      total_income: summary.total_income + applyNew.incomeChange,
+      total_expense: summary.total_expense + applyNew.expenseChange,
+      total_balance: summary.total_balance + applyNew.balanceChange,
+      month: updatedData.month,
+      year: updatedData.year,
+    });
+
+    const revertOld = calcSummaryChange(originalTransaction, true);
+
+    await updateSummary({
+      id: oldSummary.id,
+      total_income: oldSummary.total_income - revertOld.incomeChange,
+      total_expense: oldSummary.total_expense - revertOld.expenseChange,
+      total_balance: oldSummary.total_balance - revertOld.balanceChange,
+      month: originalTransaction.month,
+      year: originalTransaction.year,
+    });
+
+    return revalidatePath(`/dashboard/${user.sub}`);
+  } catch (error) {
+    throw new AppError("Erro ao atualizar transação", {
+      statusCode: 500,
+      details: {
+        message: "Erro ao atualizar transação",
+      },
+      cause: error,
+    });
+  }
 }
 
-export async function deleteTransaction(transaction: ITransactions) {
+export async function deleteTransaction(transaction: UnifiedTransaction) {
+  const { db, user } = await CheckUserAndDB();
+
   try {
-    const { db, user } = await CheckUserAndDB();
-
-    if (!user) {
-      return;
-    }
-
     const { error } = await db
       .from("transactions")
       .delete()
@@ -320,115 +243,37 @@ export async function deleteTransaction(transaction: ITransactions) {
       .single();
 
     if (error) {
-      throw error;
+      throw new AppError("Erro ao excluir transação", {
+        statusCode: 500,
+        details: {
+          message: "Erro ao excluir transação",
+        },
+        cause: error,
+      });
     }
 
-    const summary = await getSummary({
-      month: transaction.month,
-      year: transaction.year,
-      user,
-      db,
-      total_income: transaction.type === "income" ? transaction.amount : 0,
-      total_expense: transaction.type === "expense" ? transaction.amount : 0,
-      total_balance:
-        transaction.type === "income"
-          ? transaction.amount
-          : -transaction.amount,
+    const summary = await getOrCreateSummary({
+      month: String(transaction.month),
+      year: String(transaction.year),
     });
 
-    if (!("messagem" in summary)) {
-      await updateSummary({
-        total_income:
-          transaction.type === "income"
-            ? summary.total_income - transaction.amount
-            : summary.total_income,
-        total_expense:
-          transaction.type === "expense"
-            ? summary.total_expense - transaction.amount
-            : summary.total_expense,
-        total_balance:
-          transaction.type === "income"
-            ? summary.total_balance - transaction.amount
-            : summary.total_balance + transaction.amount,
-        user,
-        db,
-        month: transaction.month,
-        year: transaction.year,
-      });
+    const { incomeChange, expenseChange, balanceChange } = calcSummaryChange(
+      transaction,
+      true
+    );
 
-      revalidatePath(`/dashboard/${user?.sub}`);
-    }
+    await updateSummary({
+      id: summary.id,
+      total_income: incomeChange,
+      total_expense: expenseChange,
+      total_balance: balanceChange,
+      month: String(transaction.month),
+      year: String(transaction.year),
+    });
 
-    return;
+    return revalidatePath(`/dashboard/${user?.sub}`);
   } catch (error) {
     console.error("Erro ao excluir transação:", error);
     throw new Error("Erro ao excluir transação");
   }
 }
-
-// export async function deleteMultipleTransactions(transactionIds: string[]) {
-//   try {
-//     const { db, user } = await CheckUserAndDB();
-//     if (!user) {
-//     return;
-//   }
-
-//   const { data: transactionsToDelete, error: fetchError } = await db
-//     .from("transactions")
-//     .select("*")
-//     .eq("user_id", user?.sub)
-//     .in("id", transactionIds);
-
-//   if (fetchError) {
-//     throw fetchError;
-//   }
-
-//   if (!transactionsToDelete || transactionsToDelete.length === 0) {
-//     throw new Error("Nenhuma transação encontrada para deletar");
-//   }
-
-//   const { error: deleteError } = await db
-//     .from("transactions")
-//     .delete()
-//     .eq("user_id", user?.sub)
-//     .in("id", transactionIds);
-
-//   if (deleteError) {
-//     throw deleteError;
-//   }
-
-//   const summary = await getSummary();
-
-//   let incomeChange = 0;
-//   let expenseChange = 0;
-//   let balanceChange = 0;
-
-//   transactionsToDelete.forEach((transaction) => {
-//     if (transaction.type === "income") {
-//       incomeChange += transaction.amount;
-//       balanceChange += transaction.amount;
-//     } else {
-//       expenseChange += transaction.amount;
-//       balanceChange -= transaction.amount;
-//     }
-//   });
-
-//   // Atualizar o summary
-//   await updateSummary({
-//     total_income: summary.total_income - incomeChange,
-//     total_expense: summary.total_expense - expenseChange,
-//     total_balance: summary.total_balance - balanceChange,
-//   });
-
-//   revalidatePath(`/dashboard/${user?.sub}`);
-//   return {
-//     deletedCount: transactionsToDelete.length,
-//     deletedTransactions: transactionsToDelete,
-//   };
-//   } catch (error) {
-    
-//   }
- 
-
-  
-// }

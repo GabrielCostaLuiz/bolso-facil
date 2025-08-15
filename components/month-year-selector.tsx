@@ -3,11 +3,13 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { getMonth, getYear } from "@/utils/formatDate";
 import { icons } from "@/utils/icons";
 import { Button } from "./ui/button";
 
 interface MonthYearSelectorProps {
   className?: string;
+  isFetching?: boolean;
 }
 
 const months = [
@@ -25,17 +27,22 @@ const months = [
   "Dezembro",
 ];
 
-export function MonthYearSelector({ className }: MonthYearSelectorProps) {
+export function MonthYearSelector({
+  className,
+  isFetching,
+}: MonthYearSelectorProps) {
+  const [isLoading, setIsLoading] = useState(true);
+
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const currentDate = new Date();
-  const currentMonth = currentDate.getMonth();
-  const currentYear = currentDate.getFullYear();
+  const currentMonth = +getMonth({ dateString: currentDate });
+  const currentYear = +getYear({ dateString: currentDate });
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const monthParam = searchParams.get("month");
-    return monthParam ? parseInt(monthParam) - 1 : currentMonth;
+    return monthParam ? parseInt(monthParam) : currentMonth;
   });
 
   const [selectedYear, setSelectedYear] = useState(() => {
@@ -51,10 +58,10 @@ export function MonthYearSelector({ className }: MonthYearSelectorProps) {
   // Atualiza a URL quando mês ou ano mudarem
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("month", (selectedMonth + 1).toString());
+    params.set("month", selectedMonth.toString());
     params.set("year", selectedYear.toString());
-
     router.push(`?${params.toString()}`, { scroll: false });
+    setIsLoading(false);
   }, [selectedMonth, selectedYear, router, searchParams]);
 
   const handleMonthChange = (monthIndex: number) => {
@@ -68,8 +75,9 @@ export function MonthYearSelector({ className }: MonthYearSelectorProps) {
   };
 
   const goToPreviousMonth = () => {
-    if (selectedMonth === 0) {
-      setSelectedMonth(11);
+    setIsLoading(true);
+    if (selectedMonth <= 1) {
+      setSelectedMonth(12);
       setSelectedYear(selectedYear - 1);
     } else {
       setSelectedMonth(selectedMonth - 1);
@@ -77,8 +85,10 @@ export function MonthYearSelector({ className }: MonthYearSelectorProps) {
   };
 
   const goToNextMonth = () => {
-    if (selectedMonth === 11) {
-      setSelectedMonth(0);
+    setIsLoading(true);
+
+    if (selectedMonth >= 12) {
+      setSelectedMonth(1);
       setSelectedYear(selectedYear + 1);
     } else {
       setSelectedMonth(selectedMonth + 1);
@@ -91,13 +101,19 @@ export function MonthYearSelector({ className }: MonthYearSelectorProps) {
     setIsOpen(false);
   };
 
+  const disabledButton = isFetching || isLoading;
+
   return (
     <div className={`relative ${className}`}>
       <Card className="overflow-hidden bg-transparent border-none p-0 ">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             {/* Botão Anterior */}
-            <Button onClick={goToPreviousMonth} className="p-2 rounded-full">
+            <Button
+              onClick={goToPreviousMonth}
+              disabled={disabledButton}
+              className="p-2 rounded-full"
+            >
               {icons.arrowLeft("h-5 w-5 ")}
             </Button>
 
@@ -106,11 +122,15 @@ export function MonthYearSelector({ className }: MonthYearSelectorProps) {
               onClick={() => setIsOpen(!isOpen)}
               className="flex flex-col items-center h-full gap-3 px-4 py-2 rounded-lg text-xl font-bold"
             >
-              {months[selectedMonth]} / {selectedYear}
+              {months[selectedMonth - 1]} / {selectedYear}
             </Button>
 
             {/* Botão Próximo */}
-            <Button onClick={goToNextMonth} className="p-2 rounded-full ">
+            <Button
+              onClick={goToNextMonth}
+              disabled={disabledButton}
+              className="p-2 rounded-full "
+            >
               {icons.arrowRight("h-5 w-5 ")}
             </Button>
           </div>
@@ -121,8 +141,8 @@ export function MonthYearSelector({ className }: MonthYearSelectorProps) {
       {isOpen && (
         <>
           {/* Overlay */}
-          <div
-            className="fixed inset-0 z-40"
+          <Button
+            className="fixed inset-0 z-40 h-full w-full bg-transparent hover:!bg-transparent hover:!cursor-default"
             onClick={() => setIsOpen(false)}
           />
 
@@ -158,12 +178,12 @@ export function MonthYearSelector({ className }: MonthYearSelectorProps) {
               <div>
                 <p className="text-sm font-medium mb-2">Mês</p>
                 <div className="grid grid-cols-3 gap-2">
-                  {months.map((month, index) => (
+                  {months.map((month, index: number) => (
                     <Button
                       key={month}
-                      onClick={() => handleMonthChange(index)}
+                      onClick={() => handleMonthChange(index + 1)}
                       className={`p-2 text-sm rounded-lg transition-colors ${
-                        index === selectedMonth ? "" : "bg-gray-500"
+                        index + 1 === selectedMonth ? "" : "bg-gray-500"
                       }`}
                     >
                       {month.substring(0, 3)}
