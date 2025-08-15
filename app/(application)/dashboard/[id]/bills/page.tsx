@@ -71,19 +71,19 @@ export default function BillsPage() {
 
   // Calcular totais
   const totalMonthlyAmount = useMemo(() => {
-    return billsData.reduce((acc, bill) => acc + bill.amount, 0);
+    return billsData.reduce((acc, bill) => acc + +bill.amount, 0);
   }, [billsData]);
 
   const totalPaidAmount = useMemo(() => {
     return billsData
       .filter((bill) => bill.status === "paid")
-      .reduce((acc, bill) => acc + bill.amount, 0);
+      .reduce((acc, bill) => acc + +bill.amount, 0);
   }, [billsData]);
 
   const totalPendingAmount = useMemo(() => {
     return billsData
       .filter((bill) => bill.status === "pending" || bill.status === "overdue")
-      .reduce((acc, bill) => acc + bill.amount, 0);
+      .reduce((acc, bill) => acc + +bill.amount, 0);
   }, [billsData]);
 
   const overdueCount = useMemo(() => {

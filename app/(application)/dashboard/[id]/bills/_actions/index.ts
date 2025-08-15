@@ -510,6 +510,9 @@ export async function updateBill(data: UpdateBillData): Promise<IBills> {
       created_at: updatedBill.created_at,
       day: updatedBill.day,
       updated_at: updatedBill.updated_at,
+      dueDate: updatedBill.due_date || "",
+      recurrenceType: updatedBill.recurrence_type || "",
+
       // Legacy properties for compatibility
       // userId: updatedBill.user_id,
       // dueDate: updatedBill.due_date,
@@ -529,39 +532,39 @@ export async function updateBill(data: UpdateBillData): Promise<IBills> {
 }
 
 // Função para atualizar apenas o status de uma conta
-export async function updateBillStatus(
-  billId: string,
-  status: "paid" | "pending" | "overdue"
-): Promise<void> {
-  try {
-    const updateData: Partial<UpdateBillData> = {
-      id: billId,
-      status,
-      updatedAt: new Date(),
-    };
+// export async function updateBillStatus(
+//   billId: string,
+//   status: "paid" | "pending" | "overdue"
+// ): Promise<void> {
+//   try {
+//     const updateData: Partial<UpdateBillData> = {
+//       id: billId,
+//       status,
+//       updatedAt: new Date(),
+//     };
 
-    if (status === "paid") {
-      updateData.lastPaidDate = new Date();
-    }
+//     if (status === "paid") {
+//       updateData.lastPaidDate = new Date();
+//     }
 
-    // Aqui você faria a chamada para sua API/banco de dados
-    console.log("Atualizando status da conta:", updateData);
+//     // Aqui você faria a chamada para sua API/banco de dados
+//     console.log("Atualizando status da conta:", updateData);
 
-    // Simular delay
-    await new Promise((resolve) => setTimeout(resolve, 300));
-  } catch (error) {
-    console.error("Erro ao atualizar status da conta:", error);
-    throw new Error("Erro ao atualizar status da conta");
-  }
-}
+//     // Simular delay
+//     await new Promise((resolve) => setTimeout(resolve, 300));
+//   } catch (error) {
+//     console.error("Erro ao atualizar status da conta:", error);
+//     throw new Error("Erro ao atualizar status da conta");
+//   }
+// }
 
 // Função para excluir uma instância específica de uma conta
 // Se instanceId for fornecido, apenas aquela instância será excluída
 // Se não, a conta inteira será excluída
 export async function deleteBill(
   billId: string,
-  month: string,
-  year: string
+  month?: string,
+  year?: string
 ): Promise<void> {
   const supabase = await createClient();
   const user = await getCurrentUser();

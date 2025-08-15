@@ -118,8 +118,6 @@ export async function getOrCreateSummary(
         return sum + (isNaN(amount) ? 0 : amount);
       }, 0);
 
-
-
     if (totalBills !== 0) {
       // Create new summary with bills included
       const { data: newSummary, error: createError } = await supabase
@@ -144,7 +142,7 @@ export async function getOrCreateSummary(
       return newSummary;
     }
 
-    return null
+    return null;
   } catch (error) {
     throw new AppError("Erro ao encontrar/criar sumário mensal", {
       statusCode: 500,
@@ -229,7 +227,8 @@ export async function updateSummary(
       return updatedSummary;
     } else {
       // Create or update summary
-      return getOrCreateSummary(input, { db: supabase });
+      const summary = await getOrCreateSummary(input, { db: supabase });
+      return summary as ISummary;
     }
   } catch (error) {
     console.error("Erro ao atualizar resumo:", error);

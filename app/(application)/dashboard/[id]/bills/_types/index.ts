@@ -39,8 +39,8 @@ export interface IBills {
   
   // Campos para compatibilidade com a interface antiga
   userId?: string;
-  dueDate?: string;
-  recurrenceType?: RecurrenceType;
+  dueDate: string;
+  recurrenceType: RecurrenceType;
   isActive?: boolean;
   lastPaidDate?: string;
   reminderDays?: number;
@@ -53,7 +53,7 @@ export interface CreateBillData {
   description?: string;
   amount: number;
   category: "housing" | "utilities" | "transport" | "subscriptions" | "insurance" | "others";
-  dueDate: Date | string;
+  dueDate: string;
   recurrenceType: "monthly" | "quarterly" | "semiannually" | "annually";
   reminderDays?: number;
 }

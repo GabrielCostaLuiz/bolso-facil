@@ -197,6 +197,16 @@ export async function updateTransaction(
     //   balanceChange -= originalTransaction.amount;
     // }
 
+    if (!summary || !oldSummary) {
+      throw new AppError("Erro ao atualizar transação", {
+        statusCode: 500,
+        details: {
+          message: "Erro ao atualizar transação",
+        },
+        cause: "Erro ao atualizar transação",
+      });
+    }
+
     const applyNew = calcSummaryChange(updatedData);
 
     await updateSummary({
@@ -263,7 +273,7 @@ export async function deleteTransaction(transaction: UnifiedTransaction) {
     );
 
     await updateSummary({
-      id: summary.id,
+      id: summary?.id,
       total_income: incomeChange,
       total_expense: expenseChange,
       total_balance: balanceChange,

@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   deleteBill,
-  updateBillStatus,
+  // updateBillStatus,
 } from "@/app/(application)/dashboard/[id]/bills/_actions";
 import type { IBills } from "@/app/(application)/dashboard/[id]/bills/_types";
 import {
@@ -111,30 +111,30 @@ export function CardBill({ bill, userId }: CardBillProps) {
 
   const daysUntilDue = getDaysUntilDue();
 
-  const handleStatusUpdate = async (
-    newStatus: "paid" | "pending" | "overdue"
-  ) => {
-    setIsUpdatingStatus(true);
-    try {
-      await updateBillStatus(bill.id, newStatus);
+  // const handleStatusUpdate = async (
+  //   newStatus: "paid" | "pending" | "overdue"
+  // ) => {
+  //   setIsUpdatingStatus(true);
+  //   try {
+  //     await updateBillStatus(bill.id, newStatus);
 
-      await queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.bills.list(userId),
-      });
+  //     await queryClient.invalidateQueries({
+  //       queryKey: QUERY_KEYS.bills.list(userId),
+  //     });
 
-      toast(
-        `Conta ${
-          newStatus === "paid" ? "marcada como paga" : "status atualizado"
-        } com sucesso!`,
-        { type: "success" }
-      );
-    } catch (error) {
-      console.error("Erro ao atualizar status da conta:", error);
-      toast("Erro ao atualizar status da conta", { type: "error" });
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
+  //     toast(
+  //       `Conta ${
+  //         newStatus === "paid" ? "marcada como paga" : "status atualizado"
+  //       } com sucesso!`,
+  //       { type: "success" }
+  //     );
+  //   } catch (error) {
+  //     console.error("Erro ao atualizar status da conta:", error);
+  //     toast("Erro ao atualizar status da conta", { type: "error" });
+  //   } finally {
+  //     setIsUpdatingStatus(false);
+  //   }
+  // };
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -190,7 +190,7 @@ export function CardBill({ bill, userId }: CardBillProps) {
 
                   <div className="text-right flex-shrink-0">
                     <p className="text-lg font-bold sm:text-xl cursor-text">
-                      {formatCurrency(bill.amount)}
+                      {formatCurrency(+bill.amount)}
                     </p>
                   </div>
                 </div>
@@ -250,7 +250,7 @@ export function CardBill({ bill, userId }: CardBillProps) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
-                      {bill.status !== "paid" && (
+                      {/* {bill.status !== "paid" && (
                         <DropdownMenuItem
                           onClick={() => handleStatusUpdate("paid")}
                           className="text-green-600"
@@ -258,9 +258,9 @@ export function CardBill({ bill, userId }: CardBillProps) {
                           {icons.checkCircle("h-4 w-4 mr-2")}
                           Marcar como paga
                         </DropdownMenuItem>
-                      )}
+                      )} */}
 
-                      {bill.status !== "pending" && (
+                      {/* {bill.status !== "pending" && (
                         <DropdownMenuItem
                           onClick={() => handleStatusUpdate("pending")}
                           className="text-yellow-600"
@@ -268,7 +268,7 @@ export function CardBill({ bill, userId }: CardBillProps) {
                           {icons.clock("h-4 w-4 mr-2")}
                           Marcar como pendente
                         </DropdownMenuItem>
-                      )}
+                      )} */}
 
                       {/* <DropdownMenuItem className="text-blue-600" asChild>
                         <DialogBillEdit

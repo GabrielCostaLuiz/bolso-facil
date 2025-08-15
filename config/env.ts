@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AppError } from "@/utils/handleError";
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]),
@@ -21,7 +22,7 @@ try {
     console.error(
       "\n💡 Corrija as variáveis no seu .env ou ambiente antes de rodar o projeto.\n"
     );
-    process.exit(1); // encerra o processo
+    throw new AppError("Erro de configuração nas variáveis de ambiente");
   }
   throw err; // se for outro erro, relança
 }

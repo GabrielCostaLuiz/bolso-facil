@@ -65,7 +65,7 @@ export function DialogBillEdit({
   const onSubmit = async (data: any) => {
     try {
       setIsLoading(true);
-      await updateBill(bill.id, {
+      await updateBill({
         ...data,
         dueDate: date?.toISOString() || new Date().toISOString(),
       });

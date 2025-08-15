@@ -66,7 +66,7 @@ export default function TransactionsPage() {
 
   // Parâmetros para a query baseados no tipo de filtro
   const queryParams: GetTransactionsParams = useMemo(() => {
-    const baseParams = { type, month: monthParam, year: yearParam };
+    const baseParams = { type, month: String(monthParam), year: String(yearParam) };
 
     if (type === "custom" && customDateStart && customDateEnd) {
       // Para filtro personalizado, usa datas específicas
@@ -84,14 +84,14 @@ export default function TransactionsPage() {
 
       return {
         ...baseParams,
-        month: monthParam,
-        year: yearParam,
+        month: String(monthParam),
+        year: String(yearParam),
       };
     } else if (type === "year") {
       // Para filtro por ano, usa apenas o ano
       return {
         ...baseParams,
-        year: yearParam,
+        year: String(yearParam),
       };
     } else if (type === "week") {
       // Para semana, busca do mês atual
@@ -179,8 +179,6 @@ export default function TransactionsPage() {
       urlBase,
       monthParam,
       yearParam,
-      monthParam,
-      yearParam,
     ]
   );
 
@@ -213,7 +211,7 @@ export default function TransactionsPage() {
       (transaction) =>
         transaction.title.toLowerCase().includes(lowerSearchTerm) ||
         transaction.category.toLowerCase().includes(lowerSearchTerm) ||
-        transaction.description.toLowerCase().includes(lowerSearchTerm)
+        transaction.description?.toLowerCase().includes(lowerSearchTerm)
     );
   }, [filterTransactionsByType, searchTerm]);
 
@@ -228,7 +226,7 @@ export default function TransactionsPage() {
               "0"
             )}-${String(transaction.day).padStart(2, "0")}`
           )
-        : parseISO(transaction.date.toString());
+        : parseISO(transaction.date!.toString());
       const date = format(dateObj, "dd/MM/yyyy");
 
       if (!grouped[date]) {
